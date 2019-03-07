@@ -98,7 +98,6 @@ module Expr =
 
   end
 
-  end
                     
 (* Simple statements: syntax and sematics *)
 module Stmt =
