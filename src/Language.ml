@@ -44,7 +44,7 @@ module Expr =
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)
-let boolToInt b = if b then 1 else 0
+	let boolToInt b = if b then 1 else 0
 	let intToBool x = x != 0
 
 	(* Binop evaluator *)
@@ -80,7 +80,7 @@ let boolToInt b = if b then 1 else 0
    ostap (
       expr:
         !(Ostap.Util.expr
-            (fun l -> l)
+            (fun x -> x)
             (Array.map (fun (assoc, ops) -> assoc, List.map binop ops)
               [|
                 `Lefta , ["!!"];
