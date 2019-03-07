@@ -44,7 +44,30 @@ module Expr =
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)
-    let eval _ = failwith "Not implemented yet"
+let boolToInt b = if b then 1 else 0
+	let intToBool x = x != 0
+
+	(* Binop evaluator *)
+	let eval_op op l r = match op with
+		| "+"  -> l + r
+		| "-"  -> l - r
+		| "*"  -> l * r
+		| "/"  -> l / r
+		| "%"  -> l mod r
+		| "<"  -> boolToInt (l < r)
+		| "<=" -> boolToInt (l <= r)
+		| ">"  -> boolToInt (l > r)
+		| ">=" -> boolToInt (l >= r)
+		| "==" -> boolToInt (l = r)
+		| "!=" -> boolToInt (l != r)
+		| "&&" -> boolToInt (intToBool l && intToBool r)
+		| "!!" -> boolToInt (intToBool l || intToBool r)
+		| _    -> failwith ("Unknown operator '" ^ op ^ "'") ;;
+    
+	let rec eval s e = match e with
+		| Const c -> c
+		| Var n -> s n
+		| Binop (op, l, r) -> eval_op op (eval s l) (eval s r)
 
     (* Expression parser. You can use the following terminals:
 
@@ -52,9 +75,28 @@ module Expr =
          DECIMAL --- a decimal constant [0-9]+ as a string
    
     *)
-    ostap (
-      parse: empty {failwith "Not implemented yet"}
+    let binop op = ostap(- $(op)), (fun l r -> Binop (op, l, r))    
+    
+   ostap (
+      expr:
+        !(Ostap.Util.expr
+            (fun l -> l)
+            (Array.map (fun (assoc, ops) -> assoc, List.map binop ops)
+              [|
+                `Lefta , ["!!"];
+                `Lefta , ["&&"];
+                `Nona , ["<="; ">="; "=="; "!="; ">"; "<";];
+                `Lefta , ["+"; "-"];
+                `Lefta , ["*"; "/"; "%"];
+              |]
+            )
+            primary
+        );
+
+      primary: x:IDENT {Var x} | c:DECIMAL {Const c} | -"(" expr -")"
     )
+
+  end
 
   end
                     
@@ -78,11 +120,22 @@ module Stmt =
 
        Takes a configuration and a statement, and returns another configuration
     *)
-    let eval _ = failwith "Not implemented yet"
-
+    let rec eval ((state, is, os): config) (s:t) : config = match s with
+      | Read(x) -> (match is with
+		| [] -> failwith(Printf.sprintf "No more input")
+		| hd::tl -> (Expr.update x hd state, tl, os))
+      | Write(e) -> (state, is, (Expr.eval state e)::os)
+      | Assign(x, e) -> ((Expr.update x (Expr.eval state e) state), is, os)
+      | Seq(s1, s2) -> (eval (eval (state, is, os) s1) s2)
+      
     (* Statement parser *)
     ostap (
-      parse: empty {failwith "Not implemented yet"}
+      line:
+          "read" "(" x:IDENT ")"         {Read x}
+        | "write" "(" e:!(Expr.expr) ")" {Write e}
+        | x:IDENT ":=" e:!(Expr.expr)    {Assign (x, e)};
+
+      parse: l:line ";" rest:parse {Seq (l, rest)} | line
     )
       
   end
