@@ -134,7 +134,7 @@ module Stmt =
         | "write" "(" e:!(Expr.expr) ")" {Write e}
         | x:IDENT ":=" e:!(Expr.expr)    {Assign (x, e)};
 
-      parse: l:line ";" rest:parse {Seq (x, rest)} | line
+      parse: x:line ";" rest:parse {Seq (x, rest)} | line
     )
       
   end
