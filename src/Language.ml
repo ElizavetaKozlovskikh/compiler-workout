@@ -38,13 +38,12 @@ module Expr =
     let update x v s = fun y -> if x = y then v else s y
 
     (* Expression evaluator
-
           val eval : state -> t -> int
  
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)
-	let boolToInt b = if b then 1 else 0
+    let boolToInt b = if b then 1 else 0
 	let intToBool x = x != 0
 
 	(* Binop evaluator *)
@@ -70,34 +69,31 @@ module Expr =
 		| Binop (op, l, r) -> eval_op op (eval s l) (eval s r)
 
     (* Expression parser. You can use the following terminals:
-
          IDENT   --- a non-empty identifier a-zA-Z[a-zA-Z0-9_]* as a string
          DECIMAL --- a decimal constant [0-9]+ as a string
    
     *)
-    let binop op = ostap(- $(op)), (fun l r -> Binop (op, l, r))    
-    
-   ostap (
-      expr:
-        !(Ostap.Util.expr
-            (fun x -> x)
-            (Array.map (fun (assoc, ops) -> assoc, List.map binop ops)
-              [|
-                `Lefta , ["!!"];
-                `Lefta , ["&&"];
-                `Nona , ["<="; ">="; "=="; "!="; ">"; "<";];
-                `Lefta , ["+"; "-"];
-                `Lefta , ["*"; "/"; "%"];
-              |]
-            )
-            primary
-        );
+    let parseBinop op = ostap(- $(op)), (fun x y -> Binop (op, x, y))
+    ostap (
+     expr: 
+      !(Ostap.Util.expr 
+              (fun x -> x)
+              (Array.map (fun (assoc, ops) -> assoc, List.map parseBinop ops)
+                [|
+                  `Lefta, ["!!"];
+                  `Lefta, ["&&"];
+                  `Nona , ["<="; "<"; ">="; ">"; "=="; "!="];
+                  `Lefta, ["+"; "-"];
+                  `Lefta, ["*"; "/"; "%"];
+                |] 
+              )
+              primary
+          );
 
-      primary: x:IDENT {Var x} | c:DECIMAL {Const c} | -"(" expr -")"
+      primary: n:DECIMAL {Const n} | x:IDENT {Var x} | -"(" expr -")"
     )
 
   end
-
                     
 (* Simple statements: syntax and sematics *)
 module Stmt =
@@ -114,27 +110,25 @@ module Stmt =
     type config = Expr.state * int list * int list 
 
     (* Statement evaluator
-
           val eval : config -> t -> config
-
        Takes a configuration and a statement, and returns another configuration
     *)
-    let rec eval ((state, is, os): config) (s:t) : config = match s with
+     let rec eval ((state, is, os): config) (s:t) : config = match s with
       | Read(x) -> (match is with
 		| [] -> failwith(Printf.sprintf "No more input")
 		| hd::tl -> (Expr.update x hd state, tl, os))
       | Write(e) -> (state, is, (Expr.eval state e)::os)
       | Assign(x, e) -> ((Expr.update x (Expr.eval state e) state), is, os)
       | Seq(s1, s2) -> (eval (eval (state, is, os) s1) s2)
-      
+
     (* Statement parser *)
     ostap (
-      line:
-          "read" "(" x:IDENT ")"         {Read x}
-        | "write" "(" e:!(Expr.expr) ")" {Write e}
-        | x:IDENT ":=" e:!(Expr.expr)    {Assign (x, e)};
+       line: 
+        "read" "(" x:IDENT ")"         {Read x}
+      | "write" "(" e:!(Expr.expr) ")" {Write e}
+      | x:IDENT ":=" e:!(Expr.expr)    {Assign (x, e)};
 
-      parse: x:line ";" rest:parse {Seq (x, rest)} | line
+      parse: l:line ";" rest:parse {Seq (l, rest)} | line
     )
       
   end
@@ -145,9 +139,7 @@ module Stmt =
 type t = Stmt.t    
 
 (* Top-level evaluator
-
      eval : t -> int list -> int list
-
    Takes a program and its input stream, and returns the output stream
 *)
 let eval p i =
